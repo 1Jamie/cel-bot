@@ -3,7 +3,7 @@ module.exports = {
     pg_pass: "postgres password",
     pg_host: "postgres server address",
     pg_database: "postgres database",
-    upkeep_day: "2",
-    upkeep_time: "12",
+    upkeep_day: 2, //day of the week as a number eg/ monday = 1, tuesday = 2
+    upkeep_time: 12, //hour of the day in 24hr format 
     token: "put discord bot token here"
 };
