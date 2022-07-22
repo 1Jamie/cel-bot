@@ -160,7 +160,7 @@ function commands(message) {
 
 // when a message is seen, check it for command flag and if it is, run the commands function
 client.on('messageCreate', message => {
-	if (message.content.startsWith('!cel')) {
+	if (message.content.startsWith('!celtest')) {
 		commands(message);
 	}
 })
