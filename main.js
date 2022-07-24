@@ -1,25 +1,101 @@
 // go ahead and do our base setup here
-//const { Pool} = require('pg');
+const {
+	Pool
+} = require('pg');
 const Discord = require("discord.js");
 const info = require('./info.js');
-
-
+const marketmanager = require('./marketmanager.js');
 //create new pool for postgres connection, the user still needs to be created and ip added to pg_hba.conf on db server
-/*
 const pool = new Pool({
-        user: pg_user,
-        database: pg_database,
-        password: pg_password,
-        port: 5432,
-        host: pg_host,
+	user: info.pg_user,
+	database: info.pg_database,
+	password: info.pg_pass,
+	port: 5432,
+	host: info.pg_host,
 })
-*/
+//connect to postgres pool and return results to stdout
+pool.connect((err, client, done) => {
+	if (err) {
+		console.error('error fetching client from pool', err)
+		return
+	} else {
+		console.log('connected to postgres pool')
+	}
+	done()
+})
 
-//bs place to store this function to convert to a word day of the week
-function dayOfWeekAsString(dayIndex) {
-	return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][dayIndex] || '';
+//function to check permissions, takes in a message and a role name and returns true if the message author has the role
+function checkrole(message, role) {
+	if (message.member.roles.cache.find(r => r.name === role)) {
+		return true;
+	} else {
+		return false;
+	}
 }
-const upkeepword = dayOfWeekAsString(info.upkeep_day);
+//function to check if the person is a moderator, takes in a message and returns true if the message author is a moderator
+function checkmod(message) {
+	//check if the messages author permissions contain manage messages
+	console.log(message.member.permissions.has("MANAGE_MESSAGES"));
+	if (message.member.permissions.has("MANAGE_MESSAGES")) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+//for managing market data and prices
+function market(message) {
+	//split the message into an array of words and remove the first word (the command)
+	var words = message.content.split(" ");
+	words.shift();
+	words.shift();
+	let format = /[ `!@#$%^&*()_+\=\[\]{};':"\\|<>\/?~]/;
+	let formatflag = false;
+	words.forEach(element => {
+		if (format.test(element)) {
+			formatflag = true;
+		}
+	}
+	)
+	//if format flag is true, send a message to the channel saying that the format is wrong and exit the function market()
+	if (formatflag) {
+		message.channel.send("Please use only letters, numbers, and dashes in the market commands. Please check for any special characters other than dashes and try again.");
+		return;
+	}
+	console.log(words);
+	//switch for handling create and edit commands, we are gonna just pass each one with the pool and the message so we can use it in the marketmanager.js file
+	switch (words[0]) {
+		case "create":
+			console.log('using create with values: ' + words[1] + ' ' + words[2] + ' ' + words[3]);
+			marketmanager.createItem(message, words, pool)
+			break;
+		case "update":
+			console.log('update command seen');
+			marketmanager.updateItems(message, words, pool)
+			break;
+		case "delete":
+			//do nothing for now
+			break;
+		case "list":
+			//check if there are any items in the database with that name and order them by item id descending
+			console.log('running a list on the market with itemname: ' + words[1]);
+			marketmanager.listItem(message, words, pool);
+			break;
+		case "help":
+			//tell the user how to use the commands
+			message.channel.send("**To create an item listing**:    !cel market create itemname aiValue btcValue\n**To update an item**:    !cel market update itemname aiValue btcValue\n**To delete an item**:    !cel market delete itemname (currently not implemented)\n**To list all items with that name**:    !cel market list itemname\n**To search Items**:    !cel market search item \n* *btcvalue and aivalue must be an integer*\n* *itemname must be a string with no spaces and no special characters except dashes(-)* \n* *to use create or update you must be a mod on the server*");
+			break;
+		case "search":
+			//search for items with that name
+			console.log('searching for items with name like: ' + words[1]);
+			marketmanager.searchItem(message, words, pool);
+			break;
+		case "audit":
+			//audit the item with that name
+			console.log('auditing item with name: ' + words[1]);
+			marketmanager.getItemAuditLog(message, words, pool);
+	}
+}
 
 // Create a new client instance
 const client = new Discord.Client({
@@ -71,22 +147,34 @@ var upkeep = (message) => {
 }
 
 
-//a function to handle messages, trim off the first 5 characters of the message and then processes the message
+//a function to handle messages, trim off the command trigger of the message and then processes the message
 function commands(message) {
-	var msg = message.content.substring(5);
-	//i will swap this to a switch statement later when i am feeling less lazy, brain says no right now
-	if (msg === 'ping') {
-		message.channel.send('pong');
-	} else if (msg === 'help') {
-		message.channel.send('ping - ping the bot\nhelp - show this message \n tillupkeep - check how much time is left till upkeep \n upkeep - shows when the next upkeep is at');
-	} else if (msg === 'info') {
-		message.channel.send('nothing here yet sorry');
-	} else if (msg === 'upkeep') {
-		upkeep(message);
-	} else if (msg === 'tillupkeep') {
-		hoursTillUpkeep(message);
+	let msg = message.content.substring(9);
+	let words = msg.split(" ");
+	msg = words[0];
+	//switch to handle the commands
+	switch (msg) {
+		case "help":
+			message.channel.send('ping - ping the bot\nhelp - show this message \n tillupkeep - check how much time is left till upkeep \n upkeep - shows when the next upkeep is at\n market - access market subcommands \n market create - create an item\n market update - update an item\n market delete - delete an item (currently not implemented) \n market list - list all items with that name \n market search - search for items with the given string in the name \n market help - show how to use the market commands');
+			break;
+		case "ping":
+			message.channel.send('pong');
+			break;
+		case "tillupkeep":
+			hoursTillUpkeep(message);
+			break;
+		case "upkeep":
+			upkeep(message);
+			break;
+		case "market":
+			market(message);
+			break;
+		case "info":
+			message.channel.send('this is a bot created by @lady_gaia for the cellar door gang from the game CCO to use, it is currently in beta, so use at your own risk\n if you have any questions or suggestions, please contact @lady_gaia#0001 or open an issue on the repo at https://github.com/1jamie/cel-bot/issues');
+			break;
 	}
 }
+
 // when a message is seen, check it for command flag and if it is, run the commands function
 client.on('messageCreate', message => {
 	if (message.content.startsWith('!cel')) {
