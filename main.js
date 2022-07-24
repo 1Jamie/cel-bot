@@ -49,6 +49,19 @@ function market(message) {
 	var words = message.content.split(" ");
 	words.shift();
 	words.shift();
+	let format = /[ `!@#$%^&*()_+\=\[\]{};':"\\|<>\/?~]/;
+	let formatflag = false;
+	words.forEach(element => {
+		if (format.test(element)) {
+			formatflag = true;
+		}
+	}
+	)
+	//if format flag is true, send a message to the channel saying that the format is wrong and exit the function market()
+	if (formatflag) {
+		message.channel.send("Please use only letters, numbers, and dashes in the market commands. Please check for any special characters other than dashes and try again.");
+		return;
+	}
 	console.log(words);
 	//switch for handling create and edit commands, we are gonna just pass each one with the pool and the message so we can use it in the marketmanager.js file
 	switch (words[0]) {
@@ -58,7 +71,7 @@ function market(message) {
 			break;
 		case "update":
 			console.log('update command seen');
-			marketmanager.updateItem(message, words, pool)
+			marketmanager.updateItems(message, words, pool)
 			break;
 		case "delete":
 			//do nothing for now
@@ -70,13 +83,17 @@ function market(message) {
 			break;
 		case "help":
 			//tell the user how to use the commands
-			message.channel.send("**To create an item listing**:    !cel market create itemname aiValue btcValue\n**To update an item**:    !cel market update itemname aiValue btcValue\n**To delete an item**:    !cel market delete itemname (currently not implemented)\n**To list all items with that name**:    !cel market list itemname\n**To search Items**:    !cel market search item \n* *btcvalue and aivalue must be an integer*\n* *itemname must be a string with no spaces and no special characters* \n* *to use create or update you must be a mod on the server*");
+			message.channel.send("**To create an item listing**:    !cel market create itemname aiValue btcValue\n**To update an item**:    !cel market update itemname aiValue btcValue\n**To delete an item**:    !cel market delete itemname (currently not implemented)\n**To list all items with that name**:    !cel market list itemname\n**To search Items**:    !cel market search item \n* *btcvalue and aivalue must be an integer*\n* *itemname must be a string with no spaces and no special characters except dashes(-)* \n* *to use create or update you must be a mod on the server*");
 			break;
 		case "search":
 			//search for items with that name
 			console.log('searching for items with name like: ' + words[1]);
 			marketmanager.searchItem(message, words, pool);
 			break;
+		case "audit":
+			//audit the item with that name
+			console.log('auditing item with name: ' + words[1]);
+			marketmanager.getItemAuditLog(message, words, pool);
 	}
 }
 
