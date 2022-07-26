@@ -18,9 +18,10 @@ please note that this is a work in progress, this will be filled out more over t
 * !cel tillupkeep:  shows how much time is left till upkeep
 * !cel ping : replies with pong (for verifying connection)
 * !cel market
-    * To create an item listing:            `!cel market create itemname aiValue btcValue`
+    * To add an item listing:            `!cel market create itemname aiValue btcValue`
     * To update an item:                    `!cel market update itemname aiValue btcValue`
-    * To delete an item:                    `!cel market delete itemname (currently not implemented)`
+    * To delete an item:                    `!cel market delete itemname`
+    * To add an item Description:           `!cel market describe itemname <item description with no special characters except . and space>`
     * To list all items with that name:     `!cel market list itemname`
     * To search Items:                      `!cel market search item` 
     * To audit item changes:                `!cel market audit itemname`

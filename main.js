@@ -44,58 +44,7 @@ function checkmod(message) {
 }
 
 //for managing market data and prices
-function market(message) {
-	//split the message into an array of words and remove the first word (the command)
-	var words = message.content.split(" ");
-	words.shift();
-	words.shift();
-	let format = /[ `!@#$%^&*()_+\=\[\]{};':"\\|<>\/?~]/;
-	let formatflag = false;
-	words.forEach(element => {
-		if (format.test(element)) {
-			formatflag = true;
-		}
-	}
-	)
-	//if format flag is true, send a message to the channel saying that the format is wrong and exit the function market()
-	if (formatflag) {
-		message.channel.send("Please use only letters, numbers, and dashes in the market commands. Please check for any special characters other than dashes and try again.");
-		return;
-	}
-	console.log(words);
-	//switch for handling create and edit commands, we are gonna just pass each one with the pool and the message so we can use it in the marketmanager.js file
-	switch (words[0]) {
-		case "create":
-			console.log('using create with values: ' + words[1] + ' ' + words[2] + ' ' + words[3]);
-			marketmanager.createItem(message, words, pool)
-			break;
-		case "update":
-			console.log('update command seen');
-			marketmanager.updateItems(message, words, pool)
-			break;
-		case "delete":
-			//do nothing for now
-			break;
-		case "list":
-			//check if there are any items in the database with that name and order them by item id descending
-			console.log('running a list on the market with itemname: ' + words[1]);
-			marketmanager.listItem(message, words, pool);
-			break;
-		case "help":
-			//tell the user how to use the commands
-			message.channel.send("**To create an item listing**:    !cel market create itemname aiValue btcValue\n**To update an item**:    !cel market update itemname aiValue btcValue\n**To delete an item**:    !cel market delete itemname (currently not implemented)\n**To list all items with that name**:    !cel market list itemname\n**To search Items**:    !cel market search item \n* *btcvalue and aivalue must be an integer*\n* *itemname must be a string with no spaces and no special characters except dashes(-)* \n* *to use create or update you must be a mod on the server*");
-			break;
-		case "search":
-			//search for items with that name
-			console.log('searching for items with name like: ' + words[1]);
-			marketmanager.searchItem(message, words, pool);
-			break;
-		case "audit":
-			//audit the item with that name
-			console.log('auditing item with name: ' + words[1]);
-			marketmanager.getItemAuditLog(message, words, pool);
-	}
-}
+
 
 // Create a new client instance
 const client = new Discord.Client({
@@ -146,6 +95,34 @@ var upkeep = (message) => {
 
 }
 
+//function to audit users actions in auditlog table
+function useraudit(message){
+	words=message.content.split(' ');
+	//get the last element of the array
+	var lastword=words[words.length-1];
+	pool.query('SELECT * FROM auditlog WHERE whodid=$1 order by id desc', [lastword], (err, res) => {
+		if (err) {
+			console.error('error running query', err);
+		} else {
+			//console.log(res.rows);
+			message.channel.send(`${lastword} has the following actions:`);
+			//make a loop to create a string of all the actions
+			let auditinfo='';
+			for(i=0;i<10;i++){
+				if(res.rows.length===i){
+					i=10;
+				}
+				else{
+					auditinfo+=`${res.rows[i].command} at ${res.rows[i].whendid} by ${res.rows[i].whodid} with: ${res.rows[i].whatdid}\n`;
+				}
+			}
+			message.channel.send(auditinfo);
+		}
+	}
+	)
+}
+
+
 
 //a function to handle messages, trim off the command trigger of the message and then processes the message
 function commands(message) {
@@ -163,11 +140,15 @@ function commands(message) {
 		case "tillupkeep":
 			hoursTillUpkeep(message);
 			break;
+		case "useraudit":
+			useraudit(message);
+			break;
 		case "upkeep":
 			upkeep(message);
 			break;
 		case "market":
-			market(message);
+			//please note we need to hand off the pool to any submodules or they will not have access to the database, set it in one place not twenty.
+			marketmanager.market(message,pool);
 			break;
 		case "info":
 			message.channel.send('this is a bot created by @lady_gaia for the cellar door gang from the game CCO to use, it is currently in beta, so use at your own risk\n if you have any questions or suggestions, please contact @lady_gaia#0001 or open an issue on the repo at https://github.com/1jamie/cel-bot/issues');
@@ -181,6 +162,5 @@ client.on('messageCreate', message => {
 		commands(message);
 	}
 })
-
 // Login to Discord with your client's token
 client.login(info.token);
