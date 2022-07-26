@@ -5,5 +5,6 @@ module.exports = {
     pg_database: "postgres database",
     upkeep_day: 2, //day of the week as a number eg/ monday = 1, tuesday = 2
     upkeep_time: 12, //hour of the day in 24hr format 
-    token: "put discord bot token here"
+    token: "put discord bot token here",
+    commandFlag: "!cel"
 };

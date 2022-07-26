@@ -5,6 +5,7 @@ const {
 const Discord = require("discord.js");
 const info = require('./info.js');
 const marketmanager = require('./marketmanager.js');
+const inputflag = info.commandFlag
 //create new pool for postgres connection, the user still needs to be created and ip added to pg_hba.conf on db server
 const pool = new Pool({
 	user: info.pg_user,
@@ -126,7 +127,7 @@ function useraudit(message){
 
 //a function to handle messages, trim off the command trigger of the message and then processes the message
 function commands(message) {
-	let msg = message.content.substring(9);
+	let msg = message.content.substring((inputflag.length + 1));
 	let words = msg.split(" ");
 	msg = words[0];
 	//switch to handle the commands
@@ -158,7 +159,8 @@ function commands(message) {
 
 // when a message is seen, check it for command flag and if it is, run the commands function
 client.on('messageCreate', message => {
-	if (message.content.startsWith('!cel')) {
+	if (message.content.startsWith(inputflag)) {
+		console.log('message received' + message.content);
 		commands(message);
 	}
 })
