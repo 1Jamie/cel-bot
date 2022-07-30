@@ -2,13 +2,23 @@
 const Discord = require("discord.js");
 
 //main market manager function
-function market(message, pool) {
+function market(message, pool, isNew) {
     //split the message into an array of words and remove the first word (the command)
     var words = message.content.split(" ");
-    words.shift();
-    words.shift();
-    let format = /[`!@#$%^&*()_+\=\[\]{};':"\\|<>\/?~]/;
+    if (isNew) {
+        words.shift();
+        console.log(words);
+    } else {
+        words.shift();
+        words.shift();
+        console.log(words);
+    }
+    let format = /[`!@#$%^&*()_+\=\[\]{};'"\\|<>\/?~]/;
     let formatflag = false;
+    if (words[0] === "import") {
+        csvimporter(message, words, pool);
+        return 0;
+    }
     words.forEach(element => {
         if (format.test(element)) {
             formatflag = true;
@@ -59,6 +69,11 @@ function market(message, pool) {
             //audit the item with that name
             console.log('auditing item with name: ' + words[1]);
             getItemAuditLog(message, words, pool);
+            break;
+        default:
+            //if the command is not recognized, send a message to the channel saying that the command is not recognized
+            message.channel.send("That command is not recognized. Please use !cel market help to see the list of commands.");
+            break;
     }
 }
 //function to check mod status, takes in a message and returns true if the message author is a moderator
@@ -235,6 +250,7 @@ function getItemAuditLog(message, words, pool) {
         getItemID(pool, words[0]).then(function (itemid) {
             if (itemid == null) {
                 message.channel.send("Item does not exist!");
+                return;
             } else {
                 pool.query("SELECT * FROM auditlog WHERE itemid = $1", [itemid], (err, res) => {
                     if (err) {
@@ -250,7 +266,7 @@ function getItemAuditLog(message, words, pool) {
                             message.channel.send(auditlog);
                         } else {
                             //if there are no rows in the table, tell the user there are no commands
-                            message.channel.send("No commands found for this item.");
+                            message.channel.send("No commands found for this item.1");
                         }
                     }
                 });
@@ -338,12 +354,12 @@ function listItem(message, words, pool) {
                                         });
                                     } else {
                                         //if there are no rows in the table, tell the user there are no commands
-                                        message.channel.send("No commands found for this item.");
+                                        message.channel.send("No values in audit log found for this item.");
                                     }
                                 }
                             });
                         } else {
-                            //if there are no rows in the table, tell the user there are no commands
+                            //if there are no rows in the table, tell the user there are none
                             message.channel.send("No values found for this item.");
                         }
                     }
@@ -441,6 +457,128 @@ function addDescription(message, words, pool) {
         });
     } else {
         message.channel.send("Sorry but you do not have access to this command.");
+    }
+}
+
+//function to take a csv input and add all the items to the itemNames table itemValues table and auditlog table
+function csvimporter(message, words, pool) {
+    words.shift();
+    //make sure the user is a moderator
+    if (checkmod(message)) {
+        //take all characters after : and put them into a variable
+        let csv = message.content.split(':')[1];
+        console.log('incoming csv: ' + csv);
+        //split the csv into an array
+        let csvArray = csv.split('\n');
+        csvArray.shift();
+        //loop through the array
+        let updateLst = [];
+        let addLst = [];
+        console.log('csvArray: ' + csvArray);
+        csvArray.forEach(function (item) {
+            //split the array into an array of words
+            let row = item.split(',');
+            //reove all white space from the row
+            row = row.map(function (word) {
+                return word.trim();
+            });
+            if (row.length == 4) {
+                //check that the item does not already exist
+                getItemID(pool, row[0]).then(function (itemid) {
+                    if (itemid == null) {
+                        console.log('item does not exist adding item: ' + row[0]);
+                        //make sure row [1] is a float and row [2] is not a float
+                        if (isFloat(row[1]) && !isFloat(row[2])) {
+                            message.channel.send("there was a decimal in BTC or ai value is too big, please check the values of this entry" + row);
+                            return;
+                        }
+                        //add it to the itemNames table
+                        pool.query("INSERT INTO itemNames (name) VALUES ($1)", [row[0]], (err, res) => {
+                            if (err) {
+                                console.log(err);
+                                console.log('error adding item to itemNames: ', message.author.username, message.guild.name, new Date(), "importer", itemid, row);
+                                return;
+                            } else {
+                                //get the id of the item just added
+                                console.log('item added');
+                                //add it to the addLst array
+                                addLst.push(row[0]);
+                                getItemID(pool, row[0]).then(function (itemid) {
+                                    //add the item to the itemValues table
+                                    pool.query("INSERT INTO itemValues (itemid, aivalue, btcvalue) VALUES ($1, $2, $3)", [itemid, row[2], row[3]], (err, res) => {
+                                        if (err) {
+                                            console.log(err);
+                                            console.log('error adding item to itemValues: ' + message.author.username, message.guild.name, new Date(), "importer", itemid, row);
+                                            return;
+                                        } else {
+                                            //add the item to the auditlog table
+                                            console.log("Item added from Importer: " + row[0]);
+                                            pool.query("INSERT INTO auditlog (whodid, wheredid,whendid,command,itemid,whatdid) VALUES ($1, $2, $3, $4, $5, $6)", [message.author.username, message.guild.name, new Date(), "importer", itemid, row], (err, res) => {
+                                                if (err) {
+                                                    console.log(err);
+                                                    console.log('error adding item to auditlog: ' + message.author.username, message.guild.name, new Date(), "importer", itemid, row);
+                                                    return;
+                                                } else {
+                                                    //log the item added to the console
+                                                    console.log("auditlog updated " + row[0]);
+                                                    if (csvArray.indexOf(item) == csvArray.length - 1) {
+                                                        message.channel.send("Items added: " + addLst.length + "\n" + addLst + "\n" + "Items updated: " + updateLst.length + "\n" + updateLst);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                                }).catch(function (err) {
+                                    console.log(err);
+                                    genericError(message);
+                                });
+                            }
+                        });
+                    } else {
+                        //if the item already exists, add the new values to the itemValues table
+                        console.log('item exists updating item: ' + row[0]);
+                        pool.query("insert into itemValues (itemid, aivalue, btcvalue) values ($1, $2, $3)", [itemid, row[2], row[3]], (err, res) => {
+                            if (err) {
+                                console.log(err);
+                                console.log('error adding item to itemValues: ', message.author.username, message.guild.name, new Date(), "importer", itemid, row);
+                                return;
+                            } else {
+                                //add the item to the auditlog table
+                                updateLst.push(row[0]);
+                                pool.query("INSERT INTO auditlog (whodid, wheredid,whendid,command,itemid,whatdid) VALUES ($1, $2, $3, $4, $5, $6)", [message.author.username, message.guild.name, new Date(), "importer", itemid, row], (err, res) => {
+                                    if (err) {
+                                        console.log(err);
+                                        console.log('error updating audit log: ', message.author.username, message.guild.name, new Date(), "importer", itemid, row)
+                                        return;
+                                    } else {
+                                        //log the item added to the console
+                                        updateLst.push(row[0]);
+                                        console.log("Item updated from Importer: " + row[0]);
+                                        if (csvArray.indexOf(item) == csvArray.length - 1) {
+                                            //sort the updateLst array and aaddLst array
+                                            updateLst.sort();
+                                            addLst.sort();
+                                            console.log('last item in csvArray added, importing complete');
+                                            message.channel.send("Items added: " + addLst.length + "\n" + addLst + "\n" + "Items updated: " + updateLst.length + "\n" + updateLst);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }).catch(function (err) {
+                    console.log(err);
+                    genericError(message);
+                });
+                //if its the last element in the array, send a message to the user
+            } else {
+                //if the array is not 3 elements long, tell the user the csv is not correct
+                console.log("csv is not correct");
+            }
+        })
+        console.log('csv imported');
+        console.log('addLst: ' + addLst);
+        console.log('updateLst: ' + updateLst);
     }
 }
 
