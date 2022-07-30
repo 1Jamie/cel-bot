@@ -162,10 +162,8 @@ client.on('messageCreate', message => {
 	if (message.content.startsWith(inputflag)) {
 		console.log('!cel command seen');
 		commands(message);
-	} else if (message.content.startsWith("!market")) {
-		console.log("market command seen");
-		marketmanager.market(message,pool, true);
 	}
-})
+}
+);
 // Login to Discord with your client's token
 client.login(info.token);

@@ -5,16 +5,11 @@ const Discord = require("discord.js");
 function market(message, pool, isNew) {
     //split the message into an array of words and remove the first word (the command)
     var words = message.content.split(" ");
-    if (isNew) {
-        words.shift();
-        console.log(words);
-    } else {
-        words.shift();
-        words.shift();
-        console.log(words);
-    }
+    words.shift();
+    words.shift();
     let format = /[`!@#$%^&*()_+\=\[\]{};'"\\|<>\/?~]/;
     let formatflag = false;
+    //lazy catch for the import command, we needed to catch it before the format check because it is a special case 
     if (words[0] === "import") {
         csvimporter(message, words, pool);
         return 0;
@@ -389,36 +384,45 @@ function deleteItem(message, words, pool) {
         if (checkmod(message)) {
             //get the items id with getItemID
             getItemID(pool, words[0]).then(function (itemid) {
-                //delete all the rows in itemValues where the itemid is the same as the itemid from the table itemNames
-                pool.query("DELETE FROM itemValues WHERE itemid = $1", [itemid], (err, res) => {
-                    if (err) {
-                        console.log(err);
-                        return;
-                    } else {
-                        //delete the row in itemNames where the id is the same as the itemid
-                        pool.query("DELETE FROM itemNames WHERE id = $1", [itemid], (err, res) => {
-                            if (err) {
-                                console.log(err);
-                                return;
-                            } else {
-                                //tell the user the item was deleted
-                                message.channel.send("Item deleted.");
-                                //add the delete command to the auditlog
-                                addAuditLog(pool, words, itemid, message, "delete");
-                            }
-                        });
-                    }
-                });
+                //make sure itemid is not null
+                if (itemid != null) {
+                    //delete all the rows in itemValues where the itemid is the same as the itemid from the table itemNames
+                    pool.query("DELETE FROM itemValues WHERE itemid = $1", [itemid], (err, res) => {
+                        if (err) {
+                            console.log(err);
+                            return;
+                        } else {
+                            //delete the row in itemNames where the id is the same as the itemid
+                            pool.query("DELETE FROM itemNames WHERE id = $1", [itemid], (err, res) => {
+                                if (err) {
+                                    console.log(err);
+                                    return;
+                                } else {
+                                    //tell the user the item was deleted
+                                    message.channel.send("Item deleted.");
+                                    //add the delete command to the auditlog
+                                    addAuditLog(pool, words, itemid, message, "delete");
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    //if the itemid is null, tell the user the item does not exist
+                    message.channel.send("Item does not exist!");
+                }
             }).catch(function (err) {
                 console.log(err);
                 genericError(message);
             });
         } else {
+            //if the user is not a moderator, tell the user they are not allowed to use the command
             message.channel.send("Sorry but you do not have access to this command.");
         }
     } else {
-        //if there is not one element in the array tell the user the command is not correct
-        message.channel.send("Please enter the correct number of arguments. spaces are not allowed, please use dashes instead");
+        //if the inputs are not 1 element long tell the user input is not correct
+        if (words.length != 1) {
+            message.channel.send("Please enter the correct number of arguments. spaces are not allowed, please use dashes instead");
+        }
     }
 }
 
